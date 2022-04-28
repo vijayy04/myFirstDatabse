@@ -1,0 +1,15 @@
+{
+  "name": "postgre-api",
+  "version": "1.0.0",
+  "description": "first database",
+  "main": "server.js",
+  "scripts": {
+    "test": "yes",
+    "start": "node server.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express.js": "^1.0.0"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "vijay",
+  "version": "1.0.0",
+  "description": "my first api",
+  "main": "dont know",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "devStart": "nodemon server.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express.js": "^1.0.0",
+    "nodemon": "^2.0.15"
+  }
+}
