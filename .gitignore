@@ -1,3 +1,1 @@
-student-api/node_modules
-car-database/node_modules
-postgre-api/node_modules
+**/node_modules

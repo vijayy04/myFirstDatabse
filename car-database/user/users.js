@@ -1,125 +1,120 @@
 const express = require('express')
 const router = express.Router()
+const pool = require('../db')
 
-const carDatabase = [{
-    carId: 1,
-    model: 'maruti',
-    price: 2000,
-    year: 1990
-},
-{
-    carId: 2,
-    model: 'BMW',
-    price: 10000,
-    year: 2020
-},
-{
-    carId: 3,
-    model: 'audi',
-    price: 11000,
-    year: 2015
-},
-{
-    carId: 4,
-    model: 'mercedes',
-    price: 12000,
-    year: 2010
-},
-{
-    carId: 5,
-    model: 'renault',
-    price: 5000,
-    year: 2005
+const queries = {
+    fetchAll: 'select * from car;',
+    FetchById: `select * from car where cid = $1`,
+    updateModel: `update car set model = $1 where cid = $2 returning *`,
+    insertValues: `insert into car values($1, $2) returning *`,
+    insertIntoCOM: `insert into car_owner_mapping(cid) values($1)`,
+    delete: `delete from  car where cid = $1 returning *;`,
+    deleteFromCOM: `delete from car_owner_mapping where cid = $1`,
 }
-]
 
 const isVoid = (key) => key === undefined || key === null || key === "";
 
-router.param("carId", (req, res, next) => {
-    const id = parseInt(req.params.carId);
+router.param('carId', (req, res, next) => {
+    const id = parseInt(req.params.carId)
     if (isNaN(id)) {
-        return res.send('CarId is only in number');
-    }
-    next()
-})
-
-router.get('/:carId?', (req, res) => {
-    const Id = parseInt(req.params.carId);
-    let car = carDatabase.find(check => check.carId === Id)
-    if (isVoid(req.params.carId)) {
-        return res.send(carDatabase);
-    }
-    if (isVoid(car)) {
-        return res.send('Please enter the correct carID')
-    }
-    for (let i = 0; i < carDatabase.length; i++) {
-        if (carDatabase[i].carId == Id) {
-            res.send(carDatabase[i]);
-        }
-    }
-
-})
-
-router.post('/', (req, res) => {
-    let { carId, model, price, year } = req.body
-    const Id = parseInt(carId);
-    let car = carDatabase.find(check => check.carId === Id);
-    if (car) {
-        return res.send('This carId already exists!');
-    } else if (carId === 0 || carId < 0) {
-        return res.send(`this type ${carId} of values dont used in rollNo`)
-    } else if (isVoid(carId)) {
-        return res.send('Please enter the CarId');
-    } else if (typeof (carId) != 'number') {
-        return res.send('CarId is only in number format')
-    } else if (isVoid(price)) {
-        return res.send('Please enter the price of the car')
-    } else if (isVoid(year)) {
-        return res.send('Please enter the year of the car')
-    } else if (isVoid(model)) {
-        return res.send('Please enter the Model name of the Car')
-    } else if (isVoid(car)) {
-        carDatabase.push(req.body);
-        res.send(carDatabase);
-    }
-})
-
-router.patch('/', (req, res) => {
-    let { carId, model, price, year } = req.body;
-    const Id = parseInt(carId)
-    let car = carDatabase.find(check => check.carId === Id);
-    if (isVoid(carId)) {
-        return res.send('Please enter the CarId');
-    } else if (typeof (carId) != 'number') {
-        return res.send('CarId is only in number format')
-    } else if (isVoid(price)) {
-        return res.send('Please enter the price of the car')
-    } else if (isVoid(year)) {
-        return res.send('Please enter the year of the car')
-    } else if (isVoid(model)) {
-        return res.send('Please enter the Model name of the Car')
-    } else if (car) {
-        car.model = model;
-        car.price = price;
-        car.year = year;
-        res.send(req.body);
-    }
-})
-
-router.delete('/:carId?', (req, res) => {
-    const Id = parseInt(req.params.carId)
-    let car = carDatabase.find(check => check.carId === Id);
-    if (isVoid(Id)) {
-        return res.send('Please enter the CarId which you want to delete')
-    } else if (isVoid(car)) {
-        return res.send('Invalid CarId')
+        res.status(404).send(`Invalid Input ${req.params.carId}`);
     } else {
-        for (let i = 0; i < carDatabase.length; i++) {
-            if (carDatabase[i] === car) {
-                carDatabase.splice(i, 1);
-                res.send(car)
+        next()
+    }
+})
+
+router.get('/:carId?', async (req, res) => {
+    try {
+        const id = req.params.carId
+        if (isVoid(id)) {
+            const all = await pool.query(queries.fetchAll)
+            res.json(all.rows)
+        }
+        else {
+            const byId = await pool.query(queries.FetchById, [id])
+            if (isVoid(byId.rows[0])) {
+                res.status(404).send('no data found')
+            } else {
+                res.send(byId.rows[0])
             }
         }
+    }
+    catch (err) {
+        console.log(err)
+        res.status(404).send(err)
+    }
+})
+
+router.post('/', async (req, res) => {
+    try {
+        const { cid, model } = req.body;
+        const fetchId = await pool.query(queries.FetchById, [cid])
+        if (isVoid(cid) && isVoid(model)) {
+            res.status(404).send(`please insert cid and model of the car`)
+        } else if (isVoid(cid)) {
+            res.status(404).send('Please insert cid of the car')
+        } else if (isVoid(model)) {
+            res.status(404).send('Please insert model of the car')
+        } else if (fetchId.rows.length === 0) {
+            const postDatabase = await pool.query(queries.insertValues, [cid, model])
+            const postDatabaseAuto = await pool.query(queries.insertIntoCOM, [cid])
+            if (isVoid(postDatabase.rows[0])) {
+                res.status(404).send('no data found')
+            } else {
+                res.send(postDatabase.rows[0])
+            }
+        }
+        else {
+            res.status(404).send('this cid already exist in car database')
+        }
+    }
+    catch (err) {
+        console.log(err)
+        res.status(404).send(err)
+    }
+})
+
+router.patch('/', async (req, res) => {
+    try {
+        let { cid, model } = req.body;
+        if (isVoid(isVoid(cid) && isVoid(model))) {
+            res.status(400).send('Car Id is important to update the values')
+        } else if (isVoid(cid)) {
+            res.status(400).send('Car Id is important to update the values')
+        } else if (isVoid(model)) {
+            res.status(400).send('Please insert model of the car for updating values')
+        } else if (!isVoid(cid) && !isVoid(model)) {
+            const update = await pool.query(queries.updateModel, [model, cid])
+            if (isVoid(update.rows[0])) {
+                res.status(404).send('There is no such values in car Database')
+            } else {
+                res.send(update.rows[0])
+            }
+        }
+    }
+    catch (err) {
+        console.log(err)
+        res.status(404).send(err)
+    }
+})
+router.delete('/:carId?', async (req, res) => {
+    try {
+        const id = req.params.carId;
+        if (isVoid(req.params.carId)) {
+            res.status(400).send('Please insert the Car ID for delete');
+        }
+        else {
+            const deleteDatabase = await pool.query(queries.delete, [id])
+            if (isVoid(deleteDatabase.rows[0])) {
+                res.status(404).send("there is no such values to delete on car Database")
+            } else {
+                res.send(deleteDatabase.rows[0])
+            }
+        }
+    }
+    catch (err) {
+        console.log(err)
+        res.status(404).send(err)
     }
 })
 
